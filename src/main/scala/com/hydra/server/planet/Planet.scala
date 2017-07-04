@@ -1,5 +1,7 @@
 package com.hydra.server.planet
 
+import com.hydra.server.player.Player
+
 case class Planet(
    name: String,
    position: Position,
@@ -13,4 +15,8 @@ case class Planet(
 }
 
 case class Position(x: Int, y: Int)
+
+case class PlanetWithPlayer(planet: Planet, player: Option[Player]) {
+  def update: PlanetWithPlayer = PlanetWithPlayer(planet.update, player)
+}
 

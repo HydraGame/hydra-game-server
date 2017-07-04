@@ -2,11 +2,12 @@ package com.hydra.server
 
 import java.time.LocalDateTime
 
-import com.hydra.server.galaxy.{Galaxy, GalaxyConfigProvider, GalaxyGenerator}
+import com.hydra.server.galaxy._
 import com.hydra.server.planet.PlanetNamesProvider
 import com.redis.RedisClient
 import spray.json._
 import com.hydra.server.galaxy.GalaxyJsonProtocol._
+import com.hydra.server.player.PlayerProvider
 
 object Game {
 
@@ -23,10 +24,14 @@ object Game {
       GalaxyGenerator.generate(_, planetNames)
     }
 
-    def loop(galaxies: List[Galaxy], iterations: Int): List[Galaxy] = {
+    val players = PlayerProvider.players
+    val galaxiesWithPlyers: List[GalaxyWithPlayers] = galaxies.map { g =>  GalaxyPlayersPairing.pair(g, players) }
+
+    def loop(galaxies: List[GalaxyWithPlayers], iterations: Int): List[GalaxyWithPlayers] = {
       System.out.println(s"${LocalDateTime.now()}")
 
       val galaxiesString = galaxies.head.toJson.compactPrint
+      println(galaxiesString)
       redis.set("galaxy-simple-json-Andromeda", galaxiesString)
 
       // 60 updates per second
@@ -39,7 +44,7 @@ object Game {
     // open socket connection to client(s)
     // progress galaxies
     // send galaxies JSON via socket
-    loop(galaxies, 100)
+    loop(galaxiesWithPlyers, 1000)
   }
 
   private def toJsonString(galaxy: Galaxy): String = galaxy.toJson.compactPrint

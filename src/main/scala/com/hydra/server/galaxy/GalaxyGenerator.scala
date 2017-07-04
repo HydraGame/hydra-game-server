@@ -1,6 +1,9 @@
 package com.hydra.server.galaxy
 
-import com.hydra.server.planet.{Planet, Position}
+import com.hydra.server.planet.{Planet, PlanetWithPlayer, Position}
+import com.hydra.server.player.Player
+
+import scala.collection.immutable.{::, Nil}
 
 case class GalaxyConfig(
   name: String,
@@ -19,6 +22,21 @@ object GalaxyGenerator {
       planetNames take galaxyConfig.countPlanets zip PositionGenerator.generate(galaxyConfig) map planetFromNamePosition
 
     Galaxy(galaxyConfig.name, planets)
+  }
+}
+
+object GalaxyPlayersPairing {
+  def pair(galaxy: Galaxy, players: List[Player]): GalaxyWithPlayers = {
+
+    def combine(planets: List[Planet], players: List[Player]): List[PlanetWithPlayer] = (planets, players) match {
+      case (x::xs, y::ys) => PlanetWithPlayer(x, Some(y))::combine(xs, ys)
+      case (x::xs, Nil) => PlanetWithPlayer(x, None)::combine(xs, Nil)
+      case _ => Nil
+    }
+
+    def planetsWithPlayers = combine(galaxy.planets, players)
+
+    GalaxyWithPlayers(galaxy.name, planetsWithPlayers, galaxy.timer, players, None)
   }
 }
 

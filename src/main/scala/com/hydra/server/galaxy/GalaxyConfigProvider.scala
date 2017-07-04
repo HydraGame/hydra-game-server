@@ -8,7 +8,7 @@ object GalaxyConfigProvider {
       2560,
       864000,
       30,
-      250
+      3
     ),
     GalaxyConfig(
       "Large Magelanic Cloud",
@@ -16,7 +16,7 @@ object GalaxyConfigProvider {
       320,
       864000,
       30,
-      1
+      2
     )
   )
 }
