@@ -1,6 +1,7 @@
 package com.hydra.server.galaxy
 
-import com.hydra.server.planet.{Planet, PlanetWithPlayer, Position}
+import com.hydra.server.fleet.{BattleCruiser, ColonyShip, Fleet, Squad}
+import com.hydra.server.planet.{Planet, PlanetWithPlayer}
 import com.hydra.server.player.Player
 
 import scala.collection.immutable.{::, Nil}
@@ -42,7 +43,7 @@ object GalaxyPlayersPairing {
 
 object PositionGenerator {
   def generate(galaxyConfig: GalaxyConfig): List[Position] = for {
-    x <- (48 to(galaxyConfig.width - 48, 128)).toList
-    y <- (48 to(galaxyConfig.height - 48, 128)).toList
+    x <- (128 to(galaxyConfig.width - 128, 128)).toList
+    y <- (128 to(galaxyConfig.height - 128, 128)).toList
   } yield Position(x, y)
 }
