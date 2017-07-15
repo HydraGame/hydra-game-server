@@ -1,6 +1,6 @@
 package com.hydra.server.galaxy
 
-import com.hydra.server.fleet.{BattleCruiser, ColonyShip, Fleet, Squad}
+import com.hydra.server.ships.{BattleCruiser, ColonyShip, Fleet, Squad}
 import com.hydra.server.planet.{Planet, PlanetWithPlayer}
 import com.hydra.server.player.Player
 
@@ -26,24 +26,25 @@ object GalaxyGenerator {
   }
 }
 
-object GalaxyPlayersPairing {
-  def pair(galaxy: Galaxy, players: List[Player]): GalaxyWithPlayers = {
+object PositionGenerator {
+  def generate(galaxyConfig: GalaxyConfig): List[Position] = {
+    val rnd = new scala.util.Random
 
-    def combine(planets: List[Planet], players: List[Player]): List[PlanetWithPlayer] = (planets, players) match {
-      case (x::xs, y::ys) => PlanetWithPlayer(x, Some(y))::combine(xs, ys)
-      case (x::xs, Nil) => PlanetWithPlayer(x, None)::combine(xs, Nil)
-      case _ => Nil
+    val x = (128 to(galaxyConfig.width - 256, 256)).toList
+    val y = (128 to(galaxyConfig.width - 256, 256)).toList
+
+    val z= x.flatMap { i => {
+      y.map { j => Position(j + rnd.nextInt(128), i + rnd.nextInt(128)) }
+    }
     }
 
-    def planetsWithPlayers = combine(galaxy.planets, players)
+//    z
+////
+//    println(z)
 
-    GalaxyWithPlayers(galaxy.name, planetsWithPlayers, galaxy.timer, players, None)
+    for {
+      x <- (128 to(galaxyConfig.height - 256, 256)).toList
+      y <- (128 to(galaxyConfig.width - 256, 256)).toList
+    } yield Position(y + rnd.nextInt(128), x + rnd.nextInt(128))
   }
-}
-
-object PositionGenerator {
-  def generate(galaxyConfig: GalaxyConfig): List[Position] = for {
-    x <- (128 to(galaxyConfig.width - 128, 128)).toList
-    y <- (128 to(galaxyConfig.height - 128, 128)).toList
-  } yield Position(x, y)
 }

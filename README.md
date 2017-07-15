@@ -1,12 +1,14 @@
 # hydra-game-server
 
 Player
--> fleets
+-> id
+-> name
+-> fleets: List[FleetId]
 
 Fleet
--> player
--> position
--> option[planet]
+-> playerId
+-> squads: List[SquadId]
+-> planetId: Option[planetId]
 
 Planet
 -> position

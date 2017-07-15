@@ -1,4 +1,4 @@
-package com.hydra.server.fleet
+package com.hydra.server.ships
 
 import com.hydra.server.galaxy.Position
 import com.hydra.server.planet.Planet
@@ -13,25 +13,19 @@ sealed trait Ship {
   def velocity: Int
 }
 
-object BattleCruiser extends Ship {
-  def name: String = "Battle Cruiser"
+case class BattleCruiser(
+  name: String = "Battle Cruiser",
+  attack: Int = 100,
+  defense: Int = 50,
+  velocity: Int = 6
+) extends Ship
 
-  def attack: Int = 100
-
-  def defense: Int = 50
-
-  def velocity: Int = 6
-}
-
-object ColonyShip extends Ship {
-  def name: String = "Colony Ship"
-
-  def attack: Int = 1
-
-  def defense: Int = 10
-
-  def velocity: Int = 5
-}
+case class ColonyShip(
+  name: String = "Colony Ship",
+  attack: Int = 1,
+  defense: Int = 10,
+  velocity: Int = 5
+) extends Ship
 
 case class Squad(ship: Ship, count: Int) {
   lazy val attack: Int = ship.attack * count
@@ -49,8 +43,4 @@ case class Fleet(squads: List[Squad]) {
   )
 }
 
-case class FleetWithPosition(fleet: Fleet, position: Position, inTransit: Boolean, sourcePlanet: Option[Planet], targetPlanet: Option[Planet])
-
-object Fleet {
-
-}
+//case class FleetWithPosition(fleet: Fleet, position: Position, inTransit: Boolean, sourcePlanet: Option[Planet], targetPlanet: Option[Planet])
