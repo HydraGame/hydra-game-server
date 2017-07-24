@@ -1,7 +1,6 @@
 package com.hydra.server
 
-import java.time.LocalDateTime
-
+import com.hydra.server.command.AttackCommand
 import com.hydra.server.galaxy.GalaxyJsonProtocol._
 import com.hydra.server.galaxy._
 import com.hydra.server.planet.{Planet, PlanetExpanded, PlanetNamesProvider, PlanetWithPlayer}
@@ -13,19 +12,16 @@ import spray.json._
 import scala.collection.immutable.Nil
 
 object Game {
+  lazy val redisClient = new RedisClient("localhost", 6379)
 
   def run(): Unit = {
-    val redis = new RedisClient("localhost", 6379)
-
     // load planet names from file system
     val planetNames = PlanetNamesProvider.planetNames.getOrElse(
       throw new Exception("Cannot load planet names")
     )
 
-    // load hard-coded galaxies config
-    val galaxies: List[Galaxy] = GalaxyConfigProvider.galaxiesConfig.map {
-      GalaxyGenerator.generate(_, planetNames)
-    }
+    // load hard-coded galaxy config
+    val galaxy: Galaxy = GalaxyGenerator.generate(GalaxyConfigProvider.galaxyConfig, planetNames)
 
     val startingFleet: Fleet = Fleet(
       List(
@@ -53,7 +49,7 @@ object Game {
         }
       }
 
-    def galaxyExpanded(g: Galaxy) = {
+    def galaxyExpanded(g: Galaxy): GalaxyExpanded = {
       val planets = planetsExpanded(
         planetsWithPlayers(g.planets, players)
       )
@@ -61,27 +57,66 @@ object Game {
       GalaxyExpanded(g.name, planets, g.timer, players, None)
     }
 
-    val galaxiesExpanded = galaxies map galaxyExpanded
+    def loop(g: GalaxyExpanded, iterations: Int): GalaxyExpanded = {
+      val updatedGalaxy = handleCommands(g)
+      val galaxiesString: String = updatedGalaxy.toJson.compactPrint
 
-    def loop(galaxies: List[GalaxyExpanded], iterations: Int): List[GalaxyExpanded] = {
-      System.out.println(s"${LocalDateTime.now()}")
-
-      val galaxiesString = galaxies.head.toJson.compactPrint
-
-      redis.set("galaxy-simple-json-Andromeda", galaxiesString)
-      println(redis.get("galaxy-simple-json-Andromeda"))
+      redisClient.set("galaxy-simple-json-Andromeda", galaxiesString)
 
       // 60 updates per second
       Thread.sleep(1000 / 3)
 
-      if (iterations == 0) galaxies
-      else loop(galaxies.map(_.update), iterations - 1)
+      if (iterations == 0) updatedGalaxy
+      else loop(updatedGalaxy.update, iterations - 1)
     }
 
     // open socket connection to client(s)
     // progress galaxies
     // send galaxies JSON via socket
-    loop(galaxiesExpanded, 5000)
+    loop(galaxyExpanded(galaxy), 5000)
+  }
+
+  def handleCommands(galaxy: GalaxyExpanded): GalaxyExpanded = {
+    val oac: Option[AttackCommand] = redisClient.lpop("commands").map { rc =>
+      rc.parseJson.convertTo[AttackCommand]
+    }
+
+    val updatedGalaxy: Option[GalaxyExpanded] = oac.map {
+      handleAttackCommand(_, galaxy)
+    }
+
+    updatedGalaxy.getOrElse(galaxy)
+  }
+
+  def handleAttackCommand(attackCommand: AttackCommand, galaxy: GalaxyExpanded): GalaxyExpanded = {
+    val attackingPlanet: Option[PlanetExpanded] = galaxy.planets.find(_.planet.name == attackCommand.attackingPlanetName)
+    val attackingPlayer: Option[Player] = attackingPlanet.flatMap {
+      _.player
+    }
+    val attackingFleet: Option[Fleet] = attackingPlanet.flatMap {
+      _.fleet
+    }
+
+    val updatedPlanets = galaxy.planets.map { pe =>
+      pe.planet.name match {
+        case attackCommand.attackingPlanetName =>
+          PlanetExpanded(
+            Planet(pe.planet.name, pe.planet.position, pe.planet.population + 100, pe.planet.gold + 50000),
+            pe.player,
+            None
+          )
+        case attackCommand.attackedPlanetName =>
+          PlanetExpanded(Planet(pe.planet.name, pe.planet.position, 1), attackingPlayer, attackingFleet)
+      }
+    }
+
+    val players: List[Player] = updatedPlanets.flatMap(p => p.player)
+    val firstPlayer = players.headOption
+    val winner: Option[Player] =
+      if (players.forall(_ == players.head)) firstPlayer
+      else None
+
+    GalaxyExpanded(galaxy.name, updatedPlanets, galaxy.timer, galaxy.players, winner)
   }
 
   private def toJsonString(galaxy: GalaxyExpanded): String = galaxy.toJson.compactPrint

@@ -1,7 +1,7 @@
 package com.hydra.server.galaxy
 
 object GalaxyConfigProvider {
-  lazy val galaxiesConfig = List(
+  lazy val galaxyConfig =
     GalaxyConfig(
       "Andromeda",
       2560,
@@ -9,14 +9,5 @@ object GalaxyConfigProvider {
       864000,
       30,
       2
-    ),
-    GalaxyConfig(
-      "Large Magelanic Cloud",
-      320,
-      320,
-      864000,
-      30,
-      2
     )
-  )
 }
