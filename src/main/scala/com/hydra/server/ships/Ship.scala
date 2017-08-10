@@ -16,7 +16,7 @@ sealed trait Ship {
 case class BattleCruiser(
   name: String = "Battle Cruiser",
   attack: Int = 100,
-  defense: Int = 50,
+  defense: Int = 95,
   velocity: Int = 6
 ) extends Ship
 

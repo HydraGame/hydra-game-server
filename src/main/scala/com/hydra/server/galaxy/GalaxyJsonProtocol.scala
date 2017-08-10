@@ -1,5 +1,6 @@
 package com.hydra.server.galaxy
 
+import com.hydra.server.command.AttackCommand
 import com.hydra.server.ships._
 import com.hydra.server.planet.{Planet, PlanetExpanded, PlanetWithPlayer}
 import com.hydra.server.player.Player
@@ -20,6 +21,7 @@ object GalaxyJsonProtocol extends DefaultJsonProtocol {
   implicit val position: RootJsonFormat[Position] = jsonFormat2(Position)
   implicit val player: RootJsonFormat[Player] = jsonFormat2(Player)
   implicit val planet: RootJsonFormat[Planet] = jsonFormat(Planet, "name", "position", "population", "gold")
+  implicit val attackCommand: RootJsonFormat[AttackCommand] = jsonFormat2(AttackCommand)
   implicit val planetWithPlayer: RootJsonFormat[PlanetWithPlayer] = jsonFormat(PlanetWithPlayer, "planet", "player")
   implicit val squad: RootJsonFormat[Squad] = jsonFormat(Squad, "ship", "count")
   implicit val fleet: RootJsonFormat[Fleet] = jsonFormat(Fleet, "squads")
