@@ -81,6 +81,8 @@ object Game {
       rc.parseJson.convertTo[AttackCommand]
     }
 
+    oac.foreach { println }
+
     val updatedGalaxy: Option[GalaxyExpanded] = oac.map {
       handleAttackCommand(_, galaxy)
     }
@@ -90,23 +92,39 @@ object Game {
 
   def handleAttackCommand(attackCommand: AttackCommand, galaxy: GalaxyExpanded): GalaxyExpanded = {
     val attackingPlanet: Option[PlanetExpanded] = galaxy.planets.find(_.planet.name == attackCommand.attackingPlanetName)
+    val defendingPlanet: Option[PlanetExpanded] = galaxy.planets.find(_.planet.name == attackCommand.attackedPlanetName)
     val attackingPlayer: Option[Player] = attackingPlanet.flatMap {
       _.player
     }
-    val attackingFleet: Option[Fleet] = attackingPlanet.flatMap {
-      _.fleet
+    val attackingFleet: Option[Fleet] = attackingPlanet.flatMap { _.fleet }
+    val defendingFleet: Option[Fleet] = defendingPlanet.flatMap { _.fleet }
+
+    def attack(attackingFleet: Option[Fleet], defendingFleet: Option[Fleet]): Boolean = {
+      val rnd = scala.util.Random
+      val attackCoefficient = 0.5 + rnd.nextDouble
+      val defenseCoefficient = 0.5 + rnd.nextDouble
+
+      val attackPower = attackingFleet.map(_.attack).getOrElse(0) * attackCoefficient
+      val defensePower = defendingFleet.map(_.defense).getOrElse(0) * defenseCoefficient
+
+      println(s"Attack power: $attackPower, Defense power: $defensePower")
+
+      attackPower > defensePower
     }
+
+    val attackWon = attack(attackingFleet, defendingFleet)
 
     val updatedPlanets = galaxy.planets.map { pe =>
       pe.planet.name match {
-        case attackCommand.attackingPlanetName =>
+        case attackCommand.attackingPlanetName if attackWon =>
           PlanetExpanded(
             Planet(pe.planet.name, pe.planet.position, pe.planet.population + 100, pe.planet.gold + 50000),
             pe.player,
-            None
+            attackingFleet
           )
-        case attackCommand.attackedPlanetName =>
-          PlanetExpanded(Planet(pe.planet.name, pe.planet.position, 1), attackingPlayer, attackingFleet)
+        case attackCommand.attackedPlanetName if attackWon =>
+          PlanetExpanded(Planet(pe.planet.name, pe.planet.position, 1), attackingPlayer, defendingFleet)
+        case _ => pe
       }
     }
 

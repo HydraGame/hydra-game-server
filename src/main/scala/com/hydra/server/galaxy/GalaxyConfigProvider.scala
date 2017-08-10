@@ -8,6 +8,6 @@ object GalaxyConfigProvider {
       2560,
       864000,
       30,
-      2
+      50
     )
 }

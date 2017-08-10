@@ -1,10 +1,6 @@
 package com.hydra.server.galaxy
 
-import com.hydra.server.ships.{BattleCruiser, ColonyShip, Fleet, Squad}
-import com.hydra.server.planet.{Planet, PlanetWithPlayer}
-import com.hydra.server.player.Player
-
-import scala.collection.immutable.{::, Nil}
+import com.hydra.server.planet.Planet
 
 case class GalaxyConfig(
   name: String,
@@ -33,14 +29,10 @@ object PositionGenerator {
     val x = (128 to(galaxyConfig.width - 256, 256)).toList
     val y = (128 to(galaxyConfig.width - 256, 256)).toList
 
-    val z= x.flatMap { i => {
+    val z = x.flatMap { i => {
       y.map { j => Position(j + rnd.nextInt(128), i + rnd.nextInt(128)) }
     }
     }
-
-//    z
-////
-//    println(z)
 
     for {
       x <- (128 to(galaxyConfig.height - 256, 256)).toList
