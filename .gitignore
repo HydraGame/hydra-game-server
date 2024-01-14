@@ -1,6 +1,9 @@
 *.class
 *.log
 .idea
+.metals
+.vscode
+.scalafmt.conf
 /logs/
 /project/*-shim.sbt
 /project/project/

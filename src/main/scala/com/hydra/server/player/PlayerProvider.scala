@@ -5,7 +5,6 @@ object PlayerProvider {
     Player(1, "Ubick"),
     Player(2, "LordTheCrow"),
     Player(3, "ChocolateLover"),
-    Player(4, "Shockwave"),
-    Player(5, "Kikitik")
+    Player(4, "Tudor = bananalover")
   )
 }

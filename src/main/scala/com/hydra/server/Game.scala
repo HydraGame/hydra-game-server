@@ -3,9 +3,9 @@ package com.hydra.server
 import com.hydra.server.command.AttackCommand
 import com.hydra.server.galaxy.GalaxyJsonProtocol._
 import com.hydra.server.galaxy._
-import com.hydra.server.planet.{Planet, PlanetExpanded, PlanetNamesProvider, PlanetWithPlayer}
-import com.hydra.server.player.{Player, PlayerProvider}
+import com.hydra.server.planet._
 import com.hydra.server.ships._
+import com.hydra.server.player.{Player, PlayerProvider}
 import com.redis.RedisClient
 import spray.json._
 
@@ -21,21 +21,28 @@ object Game {
     )
 
     // load hard-coded galaxy config
-    val galaxy: Galaxy = GalaxyGenerator.generate(GalaxyConfigProvider.galaxyConfig, planetNames)
+    val galaxy: Galaxy =
+      GalaxyGenerator.generate(GalaxyConfigProvider.galaxyConfig, planetNames)
 
-    val startingFleet: Fleet = Fleet(
-      List(
-        Squad(BattleCruiser(), 2),
-        Squad(ColonyShip(), 1)
-      )
+    val startingSquds: List[Squad] = List(
+      Squad(BattleCruiser(), 2),
+      Squad(ColonyShip(), 1)
     )
+
     val players: List[Player] = PlayerProvider.players
 
-    def planetsWithPlayers(planets: List[Planet], players: List[Player]): List[PlanetWithPlayer] = {
-      def combine(planets: List[Planet], players: List[Player]): List[PlanetWithPlayer] = (planets, players) match {
-        case (x :: xs, y :: ys) => PlanetWithPlayer(x, Some(y)) :: combine(xs, ys)
+    def planetsWithPlayers(
+        planets: List[Planet],
+        players: List[Player]
+    ): List[PlanetWithPlayer] = {
+      def combine(
+          planets: List[Planet],
+          players: List[Player]
+      ): List[PlanetWithPlayer] = (planets, players) match {
+        case (x :: xs, y :: ys) =>
+          PlanetWithPlayer(x, Some(y)) :: combine(xs, ys)
         case (x :: xs, Nil) => PlanetWithPlayer(x, None) :: combine(xs, Nil)
-        case _ => Nil
+        case _              => Nil
       }
 
       combine(planets, players)
@@ -44,7 +51,14 @@ object Game {
     def planetsExpanded(planets: List[PlanetWithPlayer]): List[PlanetExpanded] =
       planets map { p =>
         p.player match {
-          case Some(_) => PlanetExpanded(p.planet, p.player, Some(startingFleet))
+          case Some(_) =>
+            PlanetExpanded(
+              p.planet,
+              p.player,
+              Some(
+                Fleet(startingSquds, p.planet.position, None)
+              )
+            )
           case None => PlanetExpanded(p.planet, p.player, None)
         }
       }
@@ -63,8 +77,9 @@ object Game {
 
       redisClient.set("galaxy-simple-json-Andromeda", galaxiesString)
 
-      // 60 updates per second
-      Thread.sleep(1000 / 3)
+      // 1 update every 5 seconds
+
+      Thread.sleep(1000 / 2)
 
       if (iterations == 0) updatedGalaxy
       else loop(updatedGalaxy.update, iterations - 1)
@@ -90,52 +105,56 @@ object Game {
     updatedGalaxy.getOrElse(galaxy)
   }
 
-  def handleAttackCommand(attackCommand: AttackCommand, galaxy: GalaxyExpanded): GalaxyExpanded = {
-    val attackingPlanet: Option[PlanetExpanded] = galaxy.planets.find(_.planet.name == attackCommand.attackingPlanetName)
-    val defendingPlanet: Option[PlanetExpanded] = galaxy.planets.find(_.planet.name == attackCommand.attackedPlanetName)
-    val attackingPlayer: Option[Player] = attackingPlanet.flatMap {
-      _.player
-    }
-    val attackingFleet: Option[Fleet] = attackingPlanet.flatMap { _.fleet }
-    val defendingFleet: Option[Fleet] = defendingPlanet.flatMap { _.fleet }
+  def handleAttackCommand(
+      attackCommand: AttackCommand,
+      galaxy: GalaxyExpanded
+  ): GalaxyExpanded = {
+    val attackingPlanet: Option[PlanetExpanded] =
+      findPlanetByName(attackCommand.attackingPlanetName, galaxy)
+    val defendingPlanet: Option[PlanetExpanded] =
+      findPlanetByName(attackCommand.attackedPlanetName, galaxy)
 
-    def attack(attackingFleet: Option[Fleet], defendingFleet: Option[Fleet]): Boolean = {
-      val rnd = scala.util.Random
-      val attackCoefficient = 0.5 + rnd.nextDouble
-      val defenseCoefficient = 0.5 + rnd.nextDouble
-
-      val attackPower = attackingFleet.map(_.attack).getOrElse(0) * attackCoefficient
-      val defensePower = defendingFleet.map(_.defense).getOrElse(0) * defenseCoefficient
-
-      println(s"Attack power: $attackPower, Defense power: $defensePower")
-
-      attackPower > defensePower
+    val updatedFleet = attackingPlanet.flatMap(_.fleet).flatMap { fleet =>
+      defendingPlanet.map(_.planet).map(fleet.setDestinationPlanet)
     }
 
-    val attackWon = attack(attackingFleet, defendingFleet)
+    val updatedPlanet = attackingPlanet.map(_.copy(fleet = updatedFleet))
 
-    val updatedPlanets = galaxy.planets.map { pe =>
-      pe.planet.name match {
-        case attackCommand.attackingPlanetName if attackWon =>
-          PlanetExpanded(
-            Planet(pe.planet.name, pe.planet.position, pe.planet.population + 100, pe.planet.gold + 50000),
-            pe.player,
-            attackingFleet
-          )
-        case attackCommand.attackedPlanetName if attackWon =>
-          PlanetExpanded(Planet(pe.planet.name, pe.planet.position, 1), attackingPlayer, defendingFleet)
-        case _ => pe
+    val updatedPlanets = galaxy.planets
+      .collect {
+        case p if p.planet.equals(attackingPlanet.get.planet) =>
+          updatedPlanet.get
+        case p => p
       }
-    }
+      .asInstanceOf[List[PlanetExpanded]]
 
-    val players: List[Player] = updatedPlanets.flatMap(p => p.player)
-    val firstPlayer = players.headOption
-    val winner: Option[Player] =
-      if (players.forall(_ == players.head)) firstPlayer
-      else None
-
-    GalaxyExpanded(galaxy.name, updatedPlanets, galaxy.timer, galaxy.players, winner)
+    galaxy.copy(planets = updatedPlanets)
   }
 
-  private def toJsonString(galaxy: GalaxyExpanded): String = galaxy.toJson.compactPrint
+  def findPlanetByName(
+      planetName: String,
+      galaxy: GalaxyExpanded
+  ): Option[PlanetExpanded] =
+    galaxy.planets.find(_.planet.name == planetName)
+
+  // def attack(
+  //     attackingFleet: Option[Fleet],
+  //     defendingFleet: Option[Fleet]
+  // ): Boolean = {
+  //   val rnd = scala.util.Random
+  //   val attackCoefficient = 0.5 + rnd.nextDouble
+  //   val defenseCoefficient = 0.5 + rnd.nextDouble
+
+  //   val attackPower =
+  //     attackingFleet.map(_.attack).getOrElse(0) * attackCoefficient
+  //   val defensePower =
+  //     defendingFleet.map(_.defense).getOrElse(0) * defenseCoefficient
+
+  //   println(s"Attack power: $attackPower, Defense power: $defensePower")
+
+  //   attackPower > defensePower
+  // }
+
+  private def toJsonString(galaxy: GalaxyExpanded): String =
+    galaxy.toJson.compactPrint
 }
